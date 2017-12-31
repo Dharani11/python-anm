@@ -1,0 +1,48 @@
+import netsnmp
+import sys
+import time
+
+args = sys.argv
+prev_rate={}
+latest_rate={}
+s_t=e_t=delta=l_t=p_t=t_d=rate=0
+ip,port,community = args[1].split(':')
+sample_frequency = float(args[2])
+samples = int(args[3])
+session = netsnmp.Session( DestHost=ip, Version=2, Community=community)
+is_second =False
+def calculateRate():
+    global is_second,prev_rate,latest_rate,s_t,t_d,p_t,rate,delta
+    l_t= int(time.time())
+    printline=str(int(time.time()))
+    s_t = int(time.time())
+    delta = float(l_t-p_t)/100
+    p_t =l_t
+    if delta<=0:
+        reboot()
+    if len(args)>4:
+        for i in args[4:]:
+                if  (sample_frequency>t_d):
+                    time.sleep(sample_frequency-t_d);
+                vars = netsnmp.VarList( netsnmp.Varbind(i) )
+                if vars!=None:
+                    latest_rate[i]=int(session.get(vars)[0])
+                    if is_second:
+                        val = latest_rate[i]-prev_rate[i]
+                        if val<0:
+                            val = 4294967296+latest_rate[i]-prev_rate[i]
+                        rate = int(val/delta)
+                printline =printline+ " | "+str(rate)
+            
+        is_second = True
+        prev_rate =latest_rate.copy()
+        print( printline )
+def reboot():
+    e_t=int(time.time())
+    t_d=s_t-e_t                
+if samples ==-1:
+    while True:
+        calculateRate()
+elif samples>1:
+    for i in range(samples):
+        calculateRate()
